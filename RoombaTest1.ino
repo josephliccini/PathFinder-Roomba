@@ -8,6 +8,7 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
+#include <vector>
 
 
 Roomba roomba(&Serial1, Roomba::Baud19200);
@@ -15,49 +16,101 @@ int ledPin =  13;
 char *desiredMAC;
 long turnDegrees;
 
-char ssid[] = "Joe"; //  your network SSID (name) 
-char pass[] = "elenapuleo";    // your network password (use for WPA, or use as key for WEP)
+char ssid[] = "sahir"; //  your network SSID (name) 
+char pass[] = "abcd1234";    // your network password (use for WPA, or use as key for WEP)
 char server[] = "ancient-gorge-84645.herokuapp.com";
+char* buff;
 
 RestClient client(server, ssid, pass);
 
-void setup()
-{    
-    Serial.begin(9600);
-    pinMode(ledPin, OUTPUT);  
-        
-    desiredMAC = "e8b0c6217436"; // ufl
-}
 
 char* convertFromString(String s) {
   int str_len = s.length() + 1;
-  char* buff = new char[str_len];
+  buff = new char[str_len];
   s.toCharArray(buff, str_len);
   return buff;
 }
 
-void loop()
-{
+void turnRoomba(int desiredDegree) {
+
+  Serial.println("About to drive");
+  
+  roomba.drive(100, Roomba::DriveInPlaceClockwise);
+  Serial.println("Started to drive");
+  
+   uint8_t currDegree[2];
+
+   int16_t temp = 0;
+   
+   while(roomba.Roomba::getSensors((uint8_t)20, currDegree, (uint8_t)2) && currDegree[0] != desiredDegree) {
+
+    delay(35);
+    
+    temp += -1 * (0 | (((int16_t)currDegree[0]) << 8) | (int16_t)(currDegree[1]));
+    
+    Serial.println(temp);
+    
+    if(temp >= desiredDegree)
+      break;
+   }
+
+   roomba.drive(0,0);
+
+//   Serial.print("Curr: ");
+  // Serial.println(currDegree);
+   Serial.print("Desired: ");
+   Serial.println(desiredDegree);
+}
+
+void setup()
+{    
+  Serial.begin(9600);
+
+  roomba.start();
+  roomba.fullMode();
+  roomba.leds(ROOMBA_MASK_LED_ADVANCE, 255, 255);
+  
+  pinMode(ledPin, OUTPUT);  
+      
+  desiredMAC = "e8b0c6217436"; // ufl
+
   client.connect();
 
-  delay(10000);
+  delay(5000);
   
   String response = "";
 
-  int statusCode = client.get("/api/beacons", &response);
+  int statusCode = client.get("/api/paths", &response);
   
   Serial.println();
 
   char* buff = convertFromString(response);
 
-  aJsonObject* jsonObject = aJson.parse(buff);
+  aJsonObject* pathObject = aJson.parse(buff);
+  pathObject = aJson.getArrayItem(pathObject, 0);
 
-  aJsonObject* beacon = aJson.getArrayItem(jsonObject, 1);
+  aJsonObject* pathIDList = aJson.getObjectItem(pathObject, "beaconIds");
 
-  aJsonObject* MACAddr = aJson.getObjectItem(beacon, "macAddress");
-  String macStr = MACAddr -> valuestring;
+  int numIDs = aJson.getArraySize(pathIDList);
 
-  Serial.println(macStr.buffer);
+  Serial.println("-------------------------------------------------------------------------------------------------------------");
+  Serial.println("Visiting in order:");
+
+  std::vector<char*> pathVector;
+
+  for(int i = 1; i < numIDs; ++i) {
+    pathVector.push_back(aJson.getArrayItem(pathIDList, i)->valuestring);
+  }
+
+  Serial.println(pathVector.size());
+   
+  if(buff) 
+    free(buff);
+}
+
+void loop() {
+  
+  // Serial.println(macStr.buffer);
 
   system("rfkill unblock bluetooth");
   system("hciconfig hci0 down");
@@ -86,37 +139,87 @@ void loop()
   
   char* nodeBuff = convertFromString(nodeOutput);
 
-  aJsonObject* foundBeaconsArray = aJson.parse(nodeBuff);
+  Serial.println("Node Buff: where we're parsing from");
+  Serial.println(nodeBuff);
+
+  aJsonObject* foundBeaconsList = aJson.parse(nodeBuff);
 
   bool found = false;
-  aJsonObject* crawl = aJson.getArrayItem(foundBeaconsArray, 0);
-  while (crawl != NULL) {
-    digitalWrite(13, LOW);
-    aJsonObject* beacon = crawl;
-    aJsonObject* id = aJson.getObjectItem(beacon, "id"); // This is the Mac Address from Eddystone
-    char* idString = id->valuestring;
-    if(strcmp(desiredMAC, idString) == 0) {
-        Serial.println("FOUND");
-        found = true;
-        // if found, check the distance and if less than a certain amount, turn by degrees sepcified
-        float distanceFromBeacon = aJson.getObjectItem(beacon, "distance")->valuefloat;
-        if(distanceFromBeacon < 10.0) {
-          // turn clockwise in place
-          // roomba.drive(100, Roomba::DriveInPlaceClockwise);
-          digitalWrite(13, HIGH);
-          // roomba.drive(0, 0);
-          //update next direction and mac address
-          // char *temp = desiredMAC;
-          // desiredMAC = nextMAC;
-          // nextMAC = temp;
-        }
+  bool closeby = false;
+    
+  aJsonObject* crawl = aJson.getArrayItem(foundBeaconsList, 0);
+
+  float lastDistance = 10000;
+  boolean backwards = false;
+  int angle = 0;
+    
+  while(crawl != NULL) {
+    
+    // aJsonObject* beacon = crawl;
+    
+    char* id = aJson.getObjectItem(crawl, "id")->valuestring; // This is the Mac Address from Eddystone
+
+    Serial.println(id);
+    
+    if(strcmp(desiredMAC, id) == 0) {
+      // Serial.println("FOUND");
+      found = true;
+
+      float distanceFromBeacon = aJson.getObjectItem(crawl, "distance")->valuefloat;
+
+      // if found, check the distance and if less than a certain amount, turn by degrees sepcified
+      if(distanceFromBeacon < 10.0) {
+       
+        // turn clockwise in place
+        // roomba.drive(100, Roomba::DriveInPlaceClockwise);
+
+        closeby = true;
+
+        Serial.println("I'm close to the desired one");
+        break;
+        
+        // roomba.drive(0, 0);
+        //update next direction and mac address
+        // char *temp = desiredMAC;
+        // desiredMAC = nextMAC;
+        // nextMAC = temp;
       } else {
-        Serial.println("NOT FOUND");
-        Serial.println(idString);
-        digitalWrite(13, LOW);
+         
+        if(distanceFromBeacon > lastDistance) {
+         backwards = true;
+        } 
+        
+        lastDistance = distanceFromBeacon;
+        //distance is in meters, roomba drives in 100 mm/s
+        int drivingDelay = distanceFromBeacon / (0.1);
+        if(backwards) {
+          roomba.drive(100, Roomba::DriveStraight);
+          delay(drivingDelay);
+        } else {
+          roomba.drive(-100, Roomba::DriveStraight);
+          delay(drivingDelay);
+        }
       }
-      crawl = crawl->next;
+    } else {
+      Serial.println("This is not the desried beacon MAC address");
+      // Serial.println(idString);
+      // digitalWrite(13, LOW);
+    }
+    
+    crawl = crawl->next;
+  } 
+
+  if(found) {
+    Serial.println("Found the beacon");
   }
+  if(closeby) {
+    Serial.println("Desired beacon is within 10");
+    turnRoomba(90);
+  }  
+    
+    
+    
+         
   
   
   //nodeOutput is separated by newlines in order: url, id, distance
@@ -194,5 +297,5 @@ void loop()
   // roomba.leds(ROOMBA_MASK_LED_ADVANCE, 0, 255);
 
   // roomba.drive(-100, 0);
-
+  
 }
