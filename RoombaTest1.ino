@@ -86,7 +86,52 @@ void turnRoomba(int desiredDegree) {
    roomba.drive(0,0);
 }
 
-void  ()
+void driveRoomba(aJsonObject* jsonObj) {
+  char* id = aJson.getObjectItem(jsonObj, "id")->valuestring; // This is the Mac Address from Eddystone
+    
+    if(strcmp(desiredMAC, id) == 0) {
+
+      float distanceFromBeacon = aJson.getObjectItem(jsonObj, "distance")->valuefloat;
+
+      // if found, check the distance and if less than a certain amount, turn by degrees sepcified
+      if(distanceFromBeacon < 5.0) {
+        closeby = true;
+        backwards = false;
+        return;
+      } else {
+         
+        if(distanceFromBeacon > lastDistance) {
+          backwards = !backwards;
+        } 
+
+        driveRoomba(distanceFromBeacon);
+        
+        lastDistance = distanceFromBeacon;
+
+        Serial.println("Last Distance");
+        Serial.println(lastDistance);
+        Serial.println("Distance From Beacon");
+        Serial.println(distanceFromBeacon);
+      }
+    }
+}
+
+
+void driveRoomba(int distanceFromBeacon) {
+  //distance is in meters, roomba drives in 100 mm/s, multiply by 1000 to convert to ms
+  int drivingDelay = distanceFromBeacon / (0.5) * 1000 / 10; //10 is arbitrary
+  if(!backwards) {
+    roomba.drive(500, Roomba::DriveStraight);
+    Serial.println(drivingDelay);
+    delay(drivingDelay);
+    roomba.drive(0, 0);
+  } else {
+    roomba.drive(-500, Roomba::DriveStraight);
+    delay(drivingDelay);
+    roomba.drive(0, 0);
+  }
+}
+
 {    
 
   Serial.begin(9600);
@@ -125,7 +170,7 @@ void  ()
   int numIDs = aJson.getArraySize(pathIDList);
 
   for(int i = 0; i < numIDs; ++i) {
-	  pathVector.push_back(aJson.getObjectItem(aJson.getArrayItem(pathIDList, i), "macAddress")->valuestring);
+    pathVector.push_back(aJson.getObjectItem(aJson.getArrayItem(pathIDList, i), "macAddress")->valuestring);
   }
 
   //starting at base station
@@ -140,50 +185,6 @@ void  ()
   turnRoombaForBeaconIndex(); //turn in direction of first beacon from base station and set desired mac
 }
 
-void driveRoomba(aJsonObject* jsonObj, char* desiredMAC) {
-  char* id = aJson.getObjectItem(jsonObj, "id")->valuestring; // This is the Mac Address from Eddystone
-    
-    if(strcmp(desiredMAC, id) == 0) {
-
-      float distanceFromBeacon = aJson.getObjectItem(jsonObj, "distance")->valuefloat;
-
-      // if found, check the distance and if less than a certain amount, turn by degrees sepcified
-      if(distanceFromBeacon < 5.0) {
-        closeby = true;
-        return;
-      } else {
-         
-        if(distanceFromBeacon > lastDistance) {
-			backwards = !backwards;
-        } 
-
-        driveRoombaDist(distanceFromBeacon);
-        
-        lastDistance = distanceFromBeacon;
-
-        Serial.println("Last Distance");
-        Serial.println(lastDistance);
-        Serial.println("Distance From Beacon");
-        Serial.println(distanceFromBeacon);
-      }
-    }
-}
-
-
-void driveRoombaDist(int distanceFromBeacon) {
-  //distance is in meters, roomba drives in 100 mm/s, multiply by 1000 to convert to ms
-  int drivingDelay = distanceFromBeacon / (0.5) * 1000 / 10; //10 is arbitrary
-  if(!backwards) {
-    roomba.drive(500, Roomba::DriveStraight);
-    Serial.println(drivingDelay);
-    delay(drivingDelay);
-    roomba.drive(0, 0);
-  } else {
-    roomba.drive(-500, Roomba::DriveStraight);
-    delay(drivingDelay);
-    roomba.drive(0, 0);
-  }
-}
 
 
 void loop() {
@@ -229,7 +230,7 @@ void loop() {
     
   while(crawl != NULL) {
         
-    driveRoomba(crawl, desiredMAC);
+    driveRoomba(crawl);
     
     crawl = crawl->next;
   } 
@@ -254,8 +255,9 @@ void turnRoombaForBeaconIndex() {
       desiredMAC = pathVector[currBeaconIndex];
       turnRoomba(angleVector.at(currBeaconIndex++));
     } else {
-      desiredMAC = pathVector[currBeaconIndex];
-      turnRoomba(360 - angleVector.at(currBeaconIndex--));
+      turnRoomba(360 - angleVector.[currBeaconIndex+1]);
+      desiredMAC = currBeaconIndex <= 0 ? pathVector[currBeaconIndex-1] : desiredMAC;
+      --currBeaconIndex;
     }
     if(count % 2 == 0) {
       roomba.leds(ROOMBA_MASK_LED_ADVANCE, 255, 255);
