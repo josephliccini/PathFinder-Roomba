@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
+#include <wire.h>
 
 float lastDistance = 10000;
 
@@ -41,7 +42,7 @@ void roombaHomeCheck() {
   if(currBeaconIndex == -1) {
     //send home, end program
     roomba.dock();
-    endProgram();
+    // endProgram();
   }
 }
 
@@ -53,49 +54,50 @@ void endProgram() {
 
 void turnRoomba(int desiredDegree) {
 
-  //Serial.println("About to drive");
+  Serial.println("About to drive");
   if(desiredDegree == 0) {
     return;
   }
-  roomba.drive(500, Roomba::DriveInPlaceClockwise);
   
-  //Serial.println("Started to drive");
   
    uint8_t currDegree[2];
 
    int16_t temp = 0;
-   
+
+   boolean sensorsRead = roomba.getSensors((uint8_t)20, currDegree, (uint8_t)2);
+
+   if (sensorsRead) {
+	 Serial.println("Started to drive");
+	 roomba.drive(500, Roomba::DriveInPlaceClockwise);
+   }
+
    while(roomba.getSensors((uint8_t)20, currDegree, (uint8_t)2)) {
 
     delay(30);
     
     temp += -1 * (0 | (((int16_t)currDegree[0]) << 8) | (int16_t)(currDegree[1]));
     
-    //Serial.println(temp);
+    Serial.println(temp);
     
     if(temp >= desiredDegree)
       break;
    }
 
    roomba.drive(0,0);
-
-   //Serial.print("Desired: ");
-   //Serial.println(desiredDegree);
 }
 
-void setup()
+void  ()
 {    
 
   Serial.begin(9600);
-  //Serial.println("START");
+  Serial.println("START");
   pinMode(ledPin, OUTPUT);  
   digitalWrite(13, HIGH);
  
   roomba.start();
-//  while(1){
-//    
-//  }
+
   roomba.fullMode();
+  turnRoomba(90);
   roomba.leds(ROOMBA_MASK_LED_ADVANCE, 255, 255);
    
   desiredMAC = "e8b0c6217436"; // ufl
@@ -155,7 +157,7 @@ void driveRoomba(aJsonObject* jsonObj, char* desiredMAC) {
 			backwards = !backwards;
         } 
 
-        driveRoomba(distanceFromBeacon);
+        driveRoombaDist(distanceFromBeacon);
         
         lastDistance = distanceFromBeacon;
 
@@ -168,7 +170,7 @@ void driveRoomba(aJsonObject* jsonObj, char* desiredMAC) {
 }
 
 
-void driveRoomba(int distanceFromBeacon) {
+void driveRoombaDist(int distanceFromBeacon) {
   //distance is in meters, roomba drives in 100 mm/s, multiply by 1000 to convert to ms
   int drivingDelay = distanceFromBeacon / (0.5) * 1000 / 10; //10 is arbitrary
   if(!backwards) {
