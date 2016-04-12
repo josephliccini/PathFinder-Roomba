@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
-#include <wire.h>
 
 float lastDistance = 10000;
 
@@ -132,6 +131,7 @@ void driveRoomba(int distanceFromBeacon) {
   }
 }
 
+void setup()
 {    
 
   Serial.begin(9600);
@@ -255,7 +255,7 @@ void turnRoombaForBeaconIndex() {
       desiredMAC = pathVector[currBeaconIndex];
       turnRoomba(angleVector.at(currBeaconIndex++));
     } else {
-      turnRoomba(360 - angleVector.[currBeaconIndex+1]);
+      turnRoomba(360 - angleVector[currBeaconIndex+1]);
       desiredMAC = currBeaconIndex <= 0 ? pathVector[currBeaconIndex-1] : desiredMAC;
       --currBeaconIndex;
     }
