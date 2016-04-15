@@ -256,7 +256,7 @@ void turnRoombaForBeaconIndex() {
       turnRoomba(angleVector.at(currBeaconIndex++));
     } else {
       turnRoomba(360 - angleVector[currBeaconIndex+1]);
-      desiredMAC = currBeaconIndex <= 0 ? pathVector[currBeaconIndex-1] : desiredMAC;
+      desiredMAC = currBeaconIndex <= 0 ? desiredMAC : pathVector[currBeaconIndex-1];
       --currBeaconIndex;
     }
     if(count % 2 == 0) {
