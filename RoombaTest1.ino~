@@ -55,7 +55,7 @@ void endProgram() {
 
 void turnRoomba(int desiredDegree) {
 
-  //Serial.println("About to drive");
+  Serial.println("About to drive");
   if(desiredDegree == 0) {
     return;
   }
@@ -68,7 +68,7 @@ void turnRoomba(int desiredDegree) {
    boolean sensorsRead = roomba.getSensors((uint8_t)20, currDegree, (uint8_t)2);
 
    if (sensorsRead) {
-   //Serial.println("Started to drive");
+   Serial.println("Started to drive");
    roomba.drive(500, Roomba::DriveInPlaceClockwise);
    }
 
@@ -78,7 +78,7 @@ void turnRoomba(int desiredDegree) {
     
     temp += -1 * (0 | (((int16_t)currDegree[0]) << 8) | (int16_t)(currDegree[1]));
     
-    //Serial.println(temp);
+    Serial.println(temp);
     
     if(temp >= desiredDegree - 13) //constant
       break;
@@ -95,15 +95,15 @@ void driveRoomba(aJsonObject* jsonObj) {
       float distanceFromBeacon = aJson.getObjectItem(jsonObj, "distance")->valuefloat;
 
       // if found, check the distance and if less than a certain amount, turn by degrees sepcified
-      if(distanceFromBeacon < 4.0) {
+      if(distanceFromBeacon < 3.0) {
         closeby = true;
         backwards = false;
         lastDistance = 10000;
         return;
       } else {
 
-         //Serial.println("Last Distance");
-        //Serial.println(lastDistance);
+         Serial.println("Last Distance");
+        Serial.println(lastDistance);
         
         if(distanceFromBeacon > lastDistance) {
           backwards = !backwards;
@@ -114,8 +114,8 @@ void driveRoomba(aJsonObject* jsonObj) {
         lastDistance = distanceFromBeacon;
 
         
-        //Serial.println("Distance From Beacon");
-        //Serial.println(distanceFromBeacon);
+        Serial.println("Distance From Beacon");
+        Serial.println(distanceFromBeacon);
       }
     }
 }
@@ -126,7 +126,7 @@ void driveRoomba(int distanceFromBeacon) {
   int drivingDelay = distanceFromBeacon / (0.5) * 1000 / 10; //10 is arbitrary
   if(!backwards) {
     roomba.drive(500, Roomba::DriveStraight);
-    //Serial.println(drivingDelay);
+    Serial.println(drivingDelay);
     delay(drivingDelay);
     roomba.drive(0, 0);
   } else {
@@ -140,7 +140,7 @@ void setup()
 {    
 
   Serial.begin(9600);
-  //Serial.println("START");
+  Serial.println("START");
   pinMode(ledPin, OUTPUT);  
   digitalWrite(13, HIGH);
   
@@ -150,10 +150,6 @@ void setup()
   //turnRoomba(90);
   roomba.drive(0,0);
   roomba.leds(ROOMBA_MASK_LED_ADVANCE, 255, 255);
-
-    // 2 bytes per note
-  uint8_t song[] = {62, 12, 66, 12, 69, 12, 74, 36};
-  roomba.song(0, song, sizeof(song));
    
   desiredMAC = "e8b0c6217436"; // ufl
 
@@ -167,7 +163,7 @@ void setup()
 
   int statusCode = client.get("/api/paths", &response);
   
-  ////Serial.println();
+  //Serial.println();
 
   char* buff = convertFromString(response);
 
@@ -179,7 +175,7 @@ void setup()
 
   int numIDs = aJson.getArraySize(pathIDList);
 
-  for(int i = 0; i < numIDs; ++i) {
+  for(int i = 0; i < numIDs-2; ++i) {
     pathVector.push_back(aJson.getObjectItem(aJson.getArrayItem(pathIDList, i), "macAddress")->valuestring);
   }
 
@@ -188,7 +184,7 @@ void setup()
   aJsonObject* pathAnglesList = aJson.getObjectItem(pathObject, "angles");
   int numAngles = aJson.getArraySize(pathAnglesList);
   
-  for(int i = 0; i < numAngles; ++i) {
+  for(int i = 0; i < numAngles-2; ++i) {
     angleVector.push_back(aJson.getArrayItem(pathAnglesList, i)->valueint);
   }
  
@@ -226,7 +222,7 @@ void loop() {
   
   char* nodeBuff = convertFromString(nodeOutput);
 
-  //Serial.println(nodeBuff);
+  Serial.println(nodeBuff);
 
   aJsonObject* foundBeaconsList = aJson.parse(nodeBuff);
 
@@ -245,8 +241,7 @@ void loop() {
     } 
   
     if(closeby) {
-      roomba.playSong(0);
-      //Serial.println("Let's move to the next beacon");
+      Serial.println("Let's move to the next beacon");
       turnRoombaForBeaconIndex();
     }  
   }
